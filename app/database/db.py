@@ -4,6 +4,19 @@ import psycopg2.extras
 from datetime import datetime
 
 
+
+
+def _is_postgres(conn):
+    return 'psycopg2' in type(conn).__module__
+
+def _cursor(conn):
+    if _is_postgres(conn):
+        return conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+    else:
+        import sqlite3
+        conn.row_factory = sqlite3.Row
+        return conn.cursor()
+
 def get_connection():
     database_url = os.environ.get("DATABASE_URL", "")
     if not database_url:
@@ -82,7 +95,7 @@ def update_campaign_counts(campaign_id):
 
 def get_all_campaigns():
     conn = get_connection()
-    cursor = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+    cursor = _cursor(conn)
     cursor.execute("SELECT * FROM campaigns ORDER BY id DESC")
     rows = cursor.fetchall()
     cursor.close()
@@ -92,7 +105,7 @@ def get_all_campaigns():
 
 def get_recipients_for_campaign(campaign_id):
     conn = get_connection()
-    cursor = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+    cursor = _cursor(conn)
     cursor.execute("SELECT * FROM recipients WHERE campaign_id=%s ORDER BY id ASC", (campaign_id,))
     rows = cursor.fetchall()
     cursor.close()
@@ -102,7 +115,7 @@ def get_recipients_for_campaign(campaign_id):
 
 def get_all_recipients():
     conn = get_connection()
-    cursor = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+    cursor = _cursor(conn)
     cursor.execute("SELECT * FROM recipients ORDER BY id DESC")
     rows = cursor.fetchall()
     cursor.close()
@@ -215,7 +228,7 @@ def import_lead_list(campaign_id, rows):
 
 def get_next_batch(campaign_id, batch_size=25):
     conn = get_connection()
-    cursor = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+    cursor = _cursor(conn)
     cursor.execute("SELECT id, contact_name, job_title, company_name, work_email, mobile, industry, sub_industry FROM lead_list WHERE campaign_id=%s AND batched=0 ORDER BY id ASC LIMIT %s", (campaign_id, batch_size))
     rows = cursor.fetchall()
     if not rows:
@@ -244,7 +257,7 @@ def get_lead_list_stats(campaign_id):
 
 def get_campaigns_with_pending_leads():
     conn = get_connection()
-    cursor = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+    cursor = _cursor(conn)
     cursor.execute("SELECT DISTINCT c.* FROM campaigns c JOIN lead_list l ON l.campaign_id=c.id WHERE l.batched=0 ORDER BY c.id DESC")
     rows = cursor.fetchall()
     cursor.close()
