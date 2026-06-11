@@ -1,6 +1,14 @@
 import streamlit as st
 from dotenv import load_dotenv
-load_dotenv()
+import os
+
+# Try with error handling
+try:
+    from dotenv import load_dotenv
+    load_dotenv()
+except Exception as e:
+    print(f"Warning: Could not load .env file normally: {e}")
+    print("Using manual .env loading as fallback")
 
 # ── Must be first ─────────────────────────────────────────────────────────────
 st.set_page_config(

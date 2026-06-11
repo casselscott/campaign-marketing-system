@@ -59,7 +59,7 @@ def initialize_database():
 def create_campaign(name, subject, total_emails):
     conn = get_connection()
     cursor = conn.cursor()
-    cursor.execute("INSERT INTO campaigns (name, subject, status, total_emails, queued_count) VALUES (%s,%s,%s,%s,%s) RETURNING id", (name, subject, "sending", total_emails, total_emails))
+    cursor.execute("INSERT INTO campaigns (name, subject, status, total_emails, queued_count) VALUES (?,?,?,?,?) RETURNING id", (name, subject, "sending", total_emails, total_emails))
     campaign_id = cursor.fetchone()[0]
     conn.commit()
     cursor.close()
@@ -70,7 +70,7 @@ def create_campaign(name, subject, total_emails):
 def update_campaign_status(campaign_id, status):
     conn = get_connection()
     cursor = conn.cursor()
-    cursor.execute("UPDATE campaigns SET status=%s, completed_at=CURRENT_TIMESTAMP WHERE id=%s", (status, campaign_id))
+    cursor.execute("UPDATE campaigns SET status=?, completed_at=CURRENT_TIMESTAMP WHERE id=?", (status, campaign_id))
     conn.commit()
     cursor.close()
     conn.close()
@@ -79,15 +79,15 @@ def update_campaign_status(campaign_id, status):
 def update_campaign_counts(campaign_id):
     conn = get_connection()
     cursor = conn.cursor()
-    cursor.execute("SELECT COUNT(*) FROM recipients WHERE campaign_id=%s AND status='sent'", (campaign_id,))
+    cursor.execute("SELECT COUNT(*) FROM recipients WHERE campaign_id=? AND status='sent'", (campaign_id,))
     sent = cursor.fetchone()[0]
-    cursor.execute("SELECT COUNT(*) FROM recipients WHERE campaign_id=%s AND status='failed'", (campaign_id,))
+    cursor.execute("SELECT COUNT(*) FROM recipients WHERE campaign_id=? AND status='failed'", (campaign_id,))
     failed = cursor.fetchone()[0]
-    cursor.execute("SELECT COUNT(*) FROM recipients WHERE campaign_id=%s AND status='pending'", (campaign_id,))
+    cursor.execute("SELECT COUNT(*) FROM recipients WHERE campaign_id=? AND status='pending'", (campaign_id,))
     pending = cursor.fetchone()[0]
-    cursor.execute("SELECT COUNT(*) FROM recipients WHERE campaign_id=%s AND status='queued'", (campaign_id,))
+    cursor.execute("SELECT COUNT(*) FROM recipients WHERE campaign_id=? AND status='queued'", (campaign_id,))
     queued = cursor.fetchone()[0]
-    cursor.execute("UPDATE campaigns SET sent_count=%s, failed_count=%s, pending_count=%s, queued_count=%s WHERE id=%s", (sent, failed, pending, queued, campaign_id))
+    cursor.execute("UPDATE campaigns SET sent_count=?, failed_count=?, pending_count=?, queued_count=? WHERE id=?", (sent, failed, pending, queued, campaign_id))
     conn.commit()
     cursor.close()
     conn.close()
@@ -106,7 +106,7 @@ def get_all_campaigns():
 def get_recipients_for_campaign(campaign_id):
     conn = get_connection()
     cursor = _cursor(conn)
-    cursor.execute("SELECT * FROM recipients WHERE campaign_id=%s ORDER BY id ASC", (campaign_id,))
+    cursor.execute("SELECT * FROM recipients WHERE campaign_id=? ORDER BY id ASC", (campaign_id,))
     rows = cursor.fetchall()
     cursor.close()
     conn.close()
@@ -126,7 +126,7 @@ def get_all_recipients():
 def recipient_exists(work_email):
     conn = get_connection()
     cursor = conn.cursor()
-    cursor.execute("SELECT status FROM recipients WHERE work_email=%s ORDER BY id DESC LIMIT 1", (work_email,))
+    cursor.execute("SELECT status FROM recipients WHERE work_email=? ORDER BY id DESC LIMIT 1", (work_email,))
     result = cursor.fetchone()
     cursor.close()
     conn.close()
@@ -136,7 +136,7 @@ def recipient_exists(work_email):
 def insert_recipient(campaign_id, data):
     conn = get_connection()
     cursor = conn.cursor()
-    cursor.execute("INSERT INTO recipients (campaign_id, contact_name, job_title, company_name, work_email, mobile, industry, sub_industry, status) VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s)", (campaign_id, data.get("contact_name",""), data.get("job_title",""), data.get("company_name",""), data.get("work_email","").strip(), data.get("mobile",""), data.get("industry",""), data.get("sub_industry",""), "pending"))
+    cursor.execute("INSERT INTO recipients (campaign_id, contact_name, job_title, company_name, work_email, mobile, industry, sub_industry, status) VALUES (?,?,?,?,?,?,?,?,?)", (campaign_id, data.get("contact_name",""), data.get("job_title",""), data.get("company_name",""), data.get("work_email","").strip(), data.get("mobile",""), data.get("industry",""), data.get("sub_industry",""), "pending"))
     conn.commit()
     cursor.close()
     conn.close()
@@ -154,7 +154,7 @@ def update_recipient_status(work_email, status, error_message=None):
         elif "domain not found" in e: smtp_category = "invalid_domain"
         elif "timeout" in e: smtp_category = "timeout"
         else: smtp_category = "unknown"
-    cursor.execute("UPDATE recipients SET status=%s, error_message=%s, smtp_category=%s, sent_at=CURRENT_TIMESTAMP WHERE work_email=%s", (status, error_message, smtp_category, work_email))
+    cursor.execute("UPDATE recipients SET status=?, error_message=?, smtp_category=?, sent_at=CURRENT_TIMESTAMP WHERE work_email=?", (status, error_message, smtp_category, work_email))
     conn.commit()
     cursor.close()
     conn.close()
@@ -176,7 +176,7 @@ def get_dashboard_metrics():
 def is_campaign_completed(campaign_id):
     conn = get_connection()
     cursor = conn.cursor()
-    cursor.execute("SELECT COUNT(*) FROM recipients WHERE campaign_id=%s AND status IN ('pending','queued')", (campaign_id,))
+    cursor.execute("SELECT COUNT(*) FROM recipients WHERE campaign_id=? AND status IN ('pending','queued')", (campaign_id,))
     remaining = cursor.fetchone()[0]
     cursor.close()
     conn.close()
@@ -198,7 +198,7 @@ def clear_all_recipients():
 def reset_recipient_status(work_email):
     conn = get_connection()
     cursor = conn.cursor()
-    cursor.execute("UPDATE recipients SET status='pending', error_message=NULL WHERE work_email=%s", (work_email,))
+    cursor.execute("UPDATE recipients SET status='pending', error_message=NULL WHERE work_email=?", (work_email,))
     conn.commit()
     cursor.close()
     conn.close()
@@ -212,31 +212,32 @@ def import_lead_list(campaign_id, rows):
         work_email = str(row.get("work_email", "")).strip().lower()
         if not work_email:
             continue
-        cursor.execute("SELECT id FROM lead_list WHERE campaign_id=%s AND work_email=%s LIMIT 1", (campaign_id, work_email))
+        cursor.execute("SELECT id FROM lead_list WHERE campaign_id=? AND work_email=? LIMIT 1", (campaign_id, work_email))
         if cursor.fetchone():
             continue
-        cursor.execute("INSERT INTO lead_list (campaign_id, contact_name, job_title, company_name, work_email, mobile, industry, sub_industry, batched) VALUES (%s,%s,%s,%s,%s,%s,%s,%s,0)", (campaign_id, str(row.get("contact_name","")).strip(), str(row.get("job_title","")).strip(), str(row.get("company_name","")).strip(), work_email, str(row.get("mobile","")).strip(), str(row.get("industry","")).strip(), str(row.get("sub_industry","")).strip()))
+        cursor.execute("INSERT INTO lead_list (campaign_id, contact_name, job_title, company_name, work_email, mobile, industry, sub_industry, batched) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 0)", (campaign_id, str(row.get("contact_name","")).strip(), str(row.get("job_title","")).strip(), str(row.get("company_name","")).strip(), work_email, str(row.get("mobile","")).strip(), str(row.get("industry","")).strip(), str(row.get("sub_industry","")).strip()))
         inserted += 1
-    cursor.execute("SELECT COUNT(*) FROM lead_list WHERE campaign_id=%s", (campaign_id,))
+    cursor.execute("SELECT COUNT(*) FROM lead_list WHERE campaign_id=?", (campaign_id,))
     total = cursor.fetchone()[0]
-    cursor.execute("UPDATE campaigns SET total_emails=%s WHERE id=%s", (total, campaign_id))
+    cursor.execute("UPDATE campaigns SET total_emails=? WHERE id=?", (total, campaign_id))
     conn.commit()
     cursor.close()
     conn.close()
     return inserted
 
-
 def get_next_batch(campaign_id, batch_size=25):
     conn = get_connection()
     cursor = _cursor(conn)
-    cursor.execute("SELECT id, contact_name, job_title, company_name, work_email, mobile, industry, sub_industry FROM lead_list WHERE campaign_id=%s AND batched=0 ORDER BY id ASC LIMIT %s", (campaign_id, batch_size))
+    cursor.execute("SELECT id, contact_name, job_title, company_name, work_email, mobile, industry, sub_industry FROM lead_list WHERE campaign_id=? AND batched=0 ORDER BY id ASC LIMIT ?", (campaign_id, batch_size))
     rows = cursor.fetchall()
     if not rows:
         cursor.close()
         conn.close()
         return []
     ids = [r["id"] for r in rows]
-    cursor.execute("UPDATE lead_list SET batched=1 WHERE id = ANY(%s)", (ids,))
+    # Fix for SQLite - replace ANY(?) with IN (?,?,...)
+    placeholders = ','.join(['?'] * len(ids))
+    cursor.execute(f"UPDATE lead_list SET batched=1 WHERE id IN ({placeholders})", ids)
     conn.commit()
     cursor.close()
     conn.close()
@@ -246,9 +247,9 @@ def get_next_batch(campaign_id, batch_size=25):
 def get_lead_list_stats(campaign_id):
     conn = get_connection()
     cursor = conn.cursor()
-    cursor.execute("SELECT COUNT(*) FROM lead_list WHERE campaign_id=%s", (campaign_id,))
+    cursor.execute("SELECT COUNT(*) FROM lead_list WHERE campaign_id=?", (campaign_id,))
     total = cursor.fetchone()[0]
-    cursor.execute("SELECT COUNT(*) FROM lead_list WHERE campaign_id=%s AND batched=1", (campaign_id,))
+    cursor.execute("SELECT COUNT(*) FROM lead_list WHERE campaign_id=? AND batched=1", (campaign_id,))
     batched = cursor.fetchone()[0]
     cursor.close()
     conn.close()
@@ -282,7 +283,7 @@ def get_all_settings():
 def save_setting(key, value):
     conn = get_connection()
     cursor = conn.cursor()
-    cursor.execute("INSERT INTO smtp_settings (key, value) VALUES (%s,%s) ON CONFLICT (key) DO UPDATE SET value=EXCLUDED.value", (key, value))
+    cursor.execute("INSERT INTO smtp_settings (key, value) VALUES (?,?) ON CONFLICT (key) DO UPDATE SET value=EXCLUDED.value", (key, value))
     conn.commit()
     cursor.close()
     conn.close()
