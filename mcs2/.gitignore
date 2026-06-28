@@ -1,0 +1,10 @@
+data/campaigns.db
+logs/
+templates/campaign.html
+templates/campaign_*.html
+.streamlit/secrets.toml
+__pycache__/
+*.pyc
+.env
+venv/
+.venv/
