@@ -2,6 +2,12 @@ import streamlit as st
 from dotenv import load_dotenv
 import os
 
+import sys
+from pathlib import Path
+
+# Add project root to Python path
+sys.path.append(str(Path(__file__).parent.parent))
+
 # Try with error handling
 try:
     from dotenv import load_dotenv
